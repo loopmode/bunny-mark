@@ -388,6 +388,8 @@ module.exports = [
     'images/rabbitv3_frankenstein.png'
 ];
 },{}],4:[function(require,module,exports){
+var GITHUB_TOKEN = 'a3cd5bd2660280b5e8bac7606a0f11764428da1d';
+
 /**
  * Select the version of pixi.js to test
  * @class VersionChooser
@@ -447,7 +449,8 @@ var VersionChooser = function(domElementSelector)
 VersionChooser.prototype.getReleases = function(callback)
 {
     var _this = this;
-    $.getJSON('https://api.github.com/repos/pixijs/pixi.js/releases', function(releases)
+    var api = 'https://api.github.com/repos/pixijs/pixi.js/releases';
+    $.getJSON(api, { access_token: GITHUB_TOKEN }, function(releases)
     {
         for (var i = 0; i < releases.length; i++)
         {
@@ -460,7 +463,8 @@ VersionChooser.prototype.getReleases = function(callback)
 VersionChooser.prototype.getBranches = function(callback)
 {
     var _this = this;
-    $.getJSON('https://api.github.com/repos/pixijs/pixi.js/branches', function(branches)
+    var api = 'https://api.github.com/repos/pixijs/pixi.js/branches';
+    $.getJSON(api, { access_token: GITHUB_TOKEN }, function(branches)
     {
         for (var i = 0; i < branches.length; i++)
         {
