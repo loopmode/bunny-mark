@@ -1,195 +1,586 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-$(onReady);
 
-$(window).on('resize', resize);
-$(window).on('orientationchange', resize);
-
-var bunnys = [];
-var gravity = 0.75;
-var maxX = 0;
-var minX = 0;
-var maxY = 0;
-var minY = 0;
-var startBunnyCount = 0;
-var isAdding = false;
-var count = 0;
-var amount = 100;
-var renderer = null;
-var stage = new PIXI.Container();
-var stats = null;
-var textures = null;
-var counter = null;
-
-function onReady()
+/**
+ * Bunny
+ * @class Bunny
+ * @param {PIXI.Texture} texture
+ * @param {Object} bounds
+ */
+var Bunny = function(texture, bounds)
 {
-    var $stage = $('#stage');
-    maxX = $stage.width();
-    maxY = $stage.height();
+	PIXI.Sprite.call(this, texture);
 
-    renderer = PIXI.autoDetectRenderer(maxX, maxY, {
-        backgroundColor:0xFFFFFF,
-        view: $stage.get(0)
-    });
+    /**
+     * The amount of gravity
+     * @type {Number}
+     */
+    this.gravity = 0.75;
 
-    amount = (renderer instanceof PIXI.WebGLRenderer) ? 100 : 5;
+    /**
+     * Horizontal speed
+     * @type {Number}
+     */
+	this.speedX = Math.random() * 10;
 
-    if (amount == 5)
+	/**
+     * Vertical speed
+     * @type {Number}
+     */
+    this.speedY = (Math.random() * 10) - 5;
+
+    /**
+     * Reference to the bounds object
+     * @type {Object}
+     */
+	this.bounds = bounds;
+
+    // Set the anchor position
+    this.anchor.x = 0.5;
+    this.anchor.y = 1;
+};
+
+// Extend the prototype
+Bunny.prototype = Object.create(PIXI.Sprite.prototype);
+
+/**
+ * Update the position of the bunny
+ * @method update
+ */
+Bunny.prototype.update = function()
+{
+    this.position.x += this.speedX;
+    this.position.y += this.speedY;
+    this.speedY += this.gravity;
+
+    if (this.position.x > this.bounds.right)
     {
-        renderer.context.mozImageSmoothingEnabled = false;
-        renderer.context.webkitImageSmoothingEnabled = false;
+        this.speedX *= -1;
+        this.position.x = this.bounds.right;
+    }
+    else if (this.position.x < this.bounds.left)
+    {
+        this.speedX *= -1;
+        this.position.x = this.bounds.left;
     }
 
-    stats = new Stats();
-    stats.domElement.id = "stats";
-    $("#frame").append(stats.domElement);
+    if (this.position.y > this.bounds.bottom)
+    {
+        this.speedY *= -0.85;
+        this.position.y = this.bounds.bottom;
+        if (Math.random() > 0.5)
+        {
+            this.speedY -= Math.random() * 6;
+        }
+    }
+    else if (this.position.y < this.bounds.top)
+    {
+        this.speedY = 0;
+        this.position.y = this.bounds.top;
+    }
+};
 
-    requestAnimationFrame(update);
+/**
+ * Don't use after this.
+ * @method destroy
+ */
+Bunny.prototype.destroy = function()
+{
+    this.bounds = null;
+    PIXI.Sprite.prototype.destroy.call(this);
+};
 
-    var texturesURLs  = [
-        'images/rabbitv3_ash.png',
-        'images/rabbitv3_batman.png',
-        'images/rabbitv3_bb8.png',
-        'images/rabbitv3_neo.png',
-        'images/rabbitv3_sonic.png',
-        'images/rabbitv3_spidey.png',
-        'images/rabbitv3_stormtrooper.png',
-        'images/rabbitv3_superman.png',
-        'images/rabbitv3_tron.png',
-        'images/rabbitv3_wolverine.png',
-        'images/rabbitv3.png',
-        'images/rabbitv3_frankenstein.png'
-    ];
+module.exports = Bunny;
 
-    textures = texturesURLs.map(function(a){
+},{}],2:[function(require,module,exports){
+var Resources = require('./Resources');
+
+/**
+ * Application call for simulation
+ * @class BunnyMark
+ * @param {String} domElementSelector Selector for the frame element
+ */
+var BunnyMark = function(domElementSelector)
+{
+    /**
+     * Collection of currently running bunnies
+     * @type {Array<PIXI.Sprite>}
+     */
+    this.bunnies = [];
+
+    /**
+     * Containing frame element
+     * @type {JQuery}
+     */
+    this.domElement = $(domElementSelector);
+
+    /**
+     * Stage bounds
+     * @type {Object}
+     */
+    this.bounds = {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0
+    };
+
+    /**
+     * `true` to increment the number of bunnies
+     * @type {boolean}
+     */
+    this.isAdding = false;
+
+    /**
+     * Number of bunnies on the stage
+     * @type {int}
+     */
+    this.count = 0;
+
+    /**
+     * The maximum number of bunnies to render.
+     * @type {Number}
+     * @default 200000
+     */
+    this.maxCount = 200000;
+
+    /**
+     * Number of bunnies to add each frame if isAdding is `true`
+     * @type {int}
+     */
+    this.amount = 100;
+
+    /**
+     * Render for the stage
+     * @type {PIXI.CanvasRenderer|PIXI.WebGLRenderer}
+     */
+    this.renderer = null;
+
+    /**
+     * Container for the bunnies
+     * @type {PIXI.Container}
+     */
+    this.stage = null;
+
+    /**
+     * The stats UI for showing framerate
+     * @type {Stats}
+     */
+    this.stats = null;
+
+    /**
+     * Collection of bunny textures
+     * @type {Array<PIXI.Texture>}
+     */
+    this.textures = null;
+
+    /**
+     * Container for the counter
+     * @type {JQuery}
+     */
+    this.counter = null;
+};
+
+/**
+ * To be called when window and PIXI is ready
+ * @method ready
+ */
+BunnyMark.prototype.ready = function(startBunnyCount)
+{
+    this.domElement.removeClass('hidden');
+
+    if (typeof PIXI === 'undefined')
+    {
+        this.domElement.addClass('error');
+        throw "PIXI is required to run";
+    }
+
+    var $stage = $('#stage');
+    var view = $stage.get(0);
+    this.bounds.right = $stage.width();
+    this.bounds.bottom = $stage.height();
+
+    this.renderer = PIXI.autoDetectRenderer(this.bounds.right, this.bounds.bottom, {
+        backgroundColor: 0xFFFFFF,
+        view: view
+    });
+
+    // Add fewer bunnies for the canvas renderer
+    if (this.renderer instanceof PIXI.CanvasRenderer)
+    {
+        this.amount = 5;
+        this.renderer.context.mozImageSmoothingEnabled = false;
+        this.renderer.context.webkitImageSmoothingEnabled = false;
+    }
+
+    // The current stage
+    this.stage = new PIXI.Container();
+
+    // Create the stats element
+    this.stats = new Stats();
+    this.stats.domElement.id = "stats";
+    this.domElement.append(this.stats.domElement);
+
+    // Get bunny textures
+    this.textures = Resources.map(function(a){
         return PIXI.Texture.fromImage(a, null, 1);
     });
 
-    var gl = renderer.gl;
-    textures.length = Math.min(gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS), textures.length);
+    var gl = this.renderer.gl;
+    this.textures.length = Math.min(
+        gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS), 
+        this.textures.length
+    );
 
-    counter = $("#counter");
-    count = startBunnyCount;
-    counter.html(count + " BUNNIES");
+    // Create the sounder
+    this.counter = $("#counter");
+    this.counter.html(this.count + " BUNNIES");
 
-    for (var i = 0; i < startBunnyCount; i++)
+    if (startBunnyCount > 0)
     {
-        var bunny = new PIXI.Sprite(textures[i % textures.length]);
-        bunny.speedX = Math.random() * 10;
-        bunny.speedY = (Math.random() * 10) - 5;
-        bunny.anchor.x = 0.5;
-        bunny.anchor.y = 1;
-        bunnys.push(bunny);
-        bunny.position.x = Math.random() * 800;
-        bunny.position.y = Math.random() * 600;
-        stage.addChild(bunny);
+        this.addBunnies(startBunnyCount);
     }
 
-    $(renderer.view).mousedown(function(){
-        isAdding = true;
+    var $view = $(view);
+    var $doc = $(document);
+    var startAdding = this.startAdding.bind(this);
+    var stopAdding = this.stopAdding.bind(this);
+
+    $view.on('mousedown touchstart', startAdding);
+    $view.on('mouseup touchend', stopAdding);
+    $doc.on('touchstart', startAdding);
+    $doc.on('touchend', stopAdding);
+
+    // Handle window resizes
+    $(window).on(
+        'resize orientationchange', 
+        this.resize.bind(this)
+    );
+
+    this.resize();
+    this.startUpdate();
+};
+
+/**
+ * Add an arbitrary amount of bunnies
+ * @method addBunnies
+ */
+BunnyMark.prototype.addBunnies = function(num)
+{
+    // We don't include this until later because pixi is required
+    var Bunny = require('./Bunny');
+
+    for (var i = 0; i < num; i++)
+    {
+        var texture = this.textures[this.count % this.textures.length];
+        var bunny = new Bunny(texture, this.bounds);
+        bunny.position.x = (this.count % 2) * 800;
+        this.bunnies.push(bunny);
+        this.stage.addChild(bunny);
+        this.count++;
+    }
+    this.counter.html(this.count + " BUNNIES");
+};
+
+/**
+ * Turn on flag to start adding more bunnies.
+ * @method startAdding
+ */
+BunnyMark.prototype.startAdding = function()
+{
+    this.isAdding = true;
+};
+
+/**
+ * Turn off flag to stop adding bunnies.
+ * @method stopAdding
+ */
+BunnyMark.prototype.stopAdding = function()
+{
+    this.isAdding = false;
+};
+
+/**
+ * Start the requestAnimationFrame update
+ * @method startUpdate
+ */
+BunnyMark.prototype.startUpdate = function()
+{
+    var _this = this;
+    requestAnimationFrame(function()
+    {
+        _this.update();
     });
+};
 
-    $(renderer.view).mouseup(function(){
-        isAdding = false;
+/**
+ * Resize the stage
+ * @method resize
+ */
+BunnyMark.prototype.resize = function()
+{
+    var width = this.domElement.width();
+    var height = this.domElement.height();
+    this.bounds.right = width;
+    this.bounds.bottom = height;
+    this.renderer.resize(width, height);
+};
+
+/**
+ * Remove all bunnies
+ * @method reset
+ */
+BunnyMark.prototype.reset = function()
+{
+    this.stage.removeChildren();
+    this.count = 0;
+    for (var i = this.bunnies.length - 1; i >= 0; i--)
+    {
+        var bunny = this.bunnies[i];
+        bunny.destroy();
+    }
+    this.bunnies.length = 0;
+};
+
+/**
+ * Frame update function
+ * @method update
+ */
+BunnyMark.prototype.update = function()
+{
+    this.stats.begin();
+
+    if (this.isAdding)
+    {
+        if (this.count < this.maxCount)
+        {
+            this.addBunnies(this.amount);
+        }
+    }
+
+    for (var i = 0; i < this.bunnies.length; i++)
+    {
+        this.bunnies[i].update();
+    }
+
+    this.renderer.render(this.stage);
+    this.startUpdate();
+    this.stats.end();
+};
+
+module.exports = BunnyMark;
+
+},{"./Bunny":1,"./Resources":3}],3:[function(require,module,exports){
+/**
+ * The collection of bunny textures
+ */
+module.exports = [
+    'images/rabbitv3_ash.png',
+    'images/rabbitv3_batman.png',
+    'images/rabbitv3_bb8.png',
+    'images/rabbitv3_neo.png',
+    'images/rabbitv3_sonic.png',
+    'images/rabbitv3_spidey.png',
+    'images/rabbitv3_stormtrooper.png',
+    'images/rabbitv3_superman.png',
+    'images/rabbitv3_tron.png',
+    'images/rabbitv3_wolverine.png',
+    'images/rabbitv3.png',
+    'images/rabbitv3_frankenstein.png'
+];
+},{}],4:[function(require,module,exports){
+/**
+ * Select the version of pixi.js to test
+ * @class VersionChooser
+ * @param {String} domElementSelector Selector for containing element
+ */
+var VersionChooser = function(domElementSelector)
+{
+    /**
+     * Containing frame element
+     * @type {JQuery}
+     */
+    this.domElement = $(domElementSelector);
+
+    /**
+     * Collection of tag options
+     * @type {Array<String>}
+     */
+    this.tags = [];
+
+    /**
+     * Collection of branch options
+     * @type {Array<String>}
+     */
+    this.branches = [];
+
+    /**
+     * Callback funtion when complete
+     * @type {Function}
+     */
+    this.select = function(){};
+
+    /**
+     * The setInterval timer
+     * @type {int}
+     */
+    this.ticker = null;
+
+    /**
+     * The timeout
+     * @type {int}
+     */
+    this.timeout = null;
+
+    /**
+     * Path for loading PIXI from the CDN
+     * @type {String}
+     */
+    this.cdnTemplate = '//d157l7jdn8e5sf.cloudfront.net/${tag}/pixi.js';
+
+    /**
+     * The input for bunny count
+     * @type {JQuery}
+     */
+    this.initCount = $("#startBunnyCount");
+};
+
+VersionChooser.prototype.getReleases = function(callback)
+{
+    var _this = this;
+    $.getJSON('https://api.github.com/repos/pixijs/pixi.js/releases', function(releases)
+    {
+        for (var i = 0; i < releases.length; i++)
+        {
+            _this.tags.push(releases[i].tag_name);
+        }
+        callback();
     });
+};
 
-    $(document).on("touchstart", onTouchStart);
-    $(document).on("touchend", onTouchEnd);
-
-    renderer.view.touchstart = function(){
-        isAdding = true;
-    };
-
-    renderer.view.touchend = function(){
-        isAdding = false;
-    };
-    resize();
-}
-
-function onTouchStart()
+VersionChooser.prototype.getBranches = function(callback)
 {
-    isAdding = true;
-}
-
-function onTouchEnd()
-{
-    isAdding = false;
-}
-
-function resize()
-{
-    var $frame = $("#frame");
-    var width = $frame.width();
-    var height = $frame.height();
-    maxX = width;
-    maxY = height;
-    renderer.resize(width, height);
-}
-
-function update()
-{
-    var i;
-    var bunny;
-
-    stats.begin();
-    if (isAdding)
+    var _this = this;
+    $.getJSON('https://api.github.com/repos/pixijs/pixi.js/branches', function(branches)
     {
-        if (count < 200000)
+        for (var i = 0; i < branches.length; i++)
         {
-            for (i = 0; i < amount; i++)
-            {
-                bunny = new PIXI.Sprite(textures[count % textures.length]);
-                bunny.speedX = Math.random() * 10;
-                bunny.speedY = (Math.random() * 10) - 5;
-                bunny.anchor.y = 1;
-                bunnys.push(bunny);
-                bunny.scale.y = 1;
-                bunny.position.x = (count%2) * 800;
-                stage.addChild(bunny);
-                count++;
-            }
+            _this.branches.push(branches[i].name);
         }
-        counter.html(count + " BUNNIES");
+        callback();
+    });
+};
+
+/**
+ * Start setup
+ * @method init
+ */
+VersionChooser.prototype.init = function()
+{
+    var _this = this;
+    
+    _this.getReleases(function()
+    {
+        _this.getBranches(function()
+        {
+            _this.displayTags();
+        })
+    });
+};
+
+/**
+ * Display the tag options
+ * @method displayTags
+ */
+VersionChooser.prototype.displayTags = function()
+{
+    var domTags = this.domElement.find('#tags').html('');
+    var domBranches = this.domElement.find('#branches').html('');
+    var i, button;
+
+    for (i = this.tags.length - 1; i >= 0; i--)
+    {
+        button = $('<button></button>');
+        button.addClass('btn btn-primary btn-sm');
+        button.html(this.tags[i]);
+        domTags.append(button);
     }
 
-    for (i = 0; i < bunnys.length; i++)
+    for (i = this.branches.length - 1; i >= 0; i--)
     {
-        //break
-        bunny = bunnys[i];
-        //bunny.rotation += 0.1
-        var transform = bunny;
-        transform.position.x += bunny.speedX;
-        transform.position.y += bunny.speedY;
-        bunny.speedY += gravity;
-
-        if (transform.position.x > maxX)
-        {
-            bunny.speedX *= -1;
-            transform.position.x = maxX;
-        }
-        else if (transform.position.x < minX)
-        {
-            bunny.speedX *= -1;
-            transform.position.x = minX;
-        }
-
-        if (transform.position.y > maxY)
-        {
-            bunny.speedY *= -0.85;
-            transform.position.y = maxY;
-            bunny.spin = (Math.random()-0.5) * 0.2
-            if (Math.random() > 0.5)
-            {
-                bunny.speedY -= Math.random() * 6;
-            }
-        }
-        else if (transform.position.y < minY)
-        {
-            bunny.speedY = 0;
-            transform.position.y = minY;
-        }
+        button = $('<button></button>');
+        button.addClass('btn btn-primary btn-sm');
+        button.html(this.branches[i]);
+        domBranches.append(button);
     }
-    renderer.render(stage);
-    requestAnimationFrame(update);
-    stats.end();
-}
-},{}]},{},[1]);
+
+    this.domElement.find('button').click(this.start.bind(this));
+};
+
+/**
+ * Start loadin PIXI
+ * @method start
+ */
+VersionChooser.prototype.start = function(event)
+{
+    event.preventDefault();
+
+    var tag = event.target.innerHTML;
+    this.domElement.find('button')
+        .prop('disabled', true)
+        .addClass('hidden');
+
+    var script = $('<script></script>');
+    var src = this.cdnTemplate.replace('${tag}', tag);
+    script.prop('src', src);
+    script.get(0).onerror = function() {
+        console.log("Script loading error");
+    };
+    this.domElement.append(script);
+    this.domElement.addClass('loading');
+
+    // Check for pixi being available
+    this.ticker = setInterval(this.update.bind(this), 15);
+
+    // Also add a timeout
+    this.timeout = setTimeout(this.stop.bind(this), 10000);
+};
+
+/**
+ * Check for when pixi is available
+ * @method update
+ */
+VersionChooser.prototype.update = function()
+{
+    if (typeof PIXI !== 'undefined')
+    {
+        this.stop();
+    }
+};
+
+/**
+ * Finish the loading
+ * @method stop
+ */
+VersionChooser.prototype.stop = function()
+{
+    this.domElement.addClass('hidden');
+    clearInterval(this.ticker);
+    clearTimeout(this.timeout);
+    this.timeout = null;
+    this.ticker = null;
+    this.select(parseInt(this.initCount.val()));
+};
+
+module.exports = VersionChooser;
+
+},{}],5:[function(require,module,exports){
+var BunnyMark = require('./BunnyMark');
+var VersionChooser = require('./VersionChooser');
+
+var app = new BunnyMark('#frame');
+var chooser = new VersionChooser('#chooser');
+chooser.select = app.ready.bind(app);
+
+// Wait for window
+$(chooser.init.bind(chooser));
+},{"./BunnyMark":2,"./VersionChooser":4}]},{},[5]);
