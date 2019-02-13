@@ -1,4 +1,4 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 
 /**
  * Bunny
@@ -212,6 +212,9 @@ BunnyMark.prototype.ready = function(startBunnyCount)
 
     $('input[type=checkbox]').each(function() {
         options[this.value] = this.checked;
+    });
+    $('select').each(function() {
+        options.powerPreference = this.value;
     });
 
     if (PIXI.autoDetectRenderer) {
@@ -487,7 +490,7 @@ VersionChooser.prototype.getReleases = function(callback)
         {
             _this.tags.push(releases[i].tag_name);
         }
-        _this.tags.reverse();
+        _this.tags.sort();
         callback();
     });
 };
@@ -507,6 +510,7 @@ VersionChooser.prototype.getBranches = function(callback)
         {
             _this.branches.push(branches[i].name);
         }
+        _this.branches.sort();
         callback();
     });
 };
@@ -567,45 +571,51 @@ VersionChooser.prototype.init = function()
  */
 VersionChooser.prototype.displayTags = function()
 {
-    var domTags = this.domElement.find('#tags').html('');
-    var domBranches = this.domElement.find('#branches').html('');
-    var i, button;
-    var template = this.domElement.find('#template').html();
+    var domTags = this.domElement.find('#tags');
+    var domBranches = this.domElement.find('#branches');
+    var i, option;
 
     for (i = this.tags.length - 1; i >= 0; i--)
     {
-        button = $(template);
-        button.find('.version')
-            .prop('title', this.tags[i])
-            .html(this.tags[i]);
-        domTags.append(button);
+        option = $(document.createElement('option'));
+        option.html(this.tags[i]);
+        domTags.append(option);
     }
 
     for (i = this.branches.length - 1; i >= 0; i--)
     {
-        button = $(template);
-        button.find('.version')
-            .prop('title', this.branches[i])
-            .html(this.branches[i]);
-        domBranches.append(button);
+        option = $(document.createElement('option'));
+        option.html(this.branches[i]);
+        domBranches.append(option);
     }
 
-    this.domElement.find('.version').click(this.start.bind(this));
+    var tagsButton = this.domElement.find('#tagsButton');
+    var branchesButton = this.domElement.find('#branchesButton');
+    var start = this.start.bind(this);
+
+    tagsButton.on('click', function(event) {
+        event.preventDefault();
+        var value = domTags.val();
+        if (value) {
+            start(value);
+        }
+    });
+
+    branchesButton.on('click', function(event) {
+        event.preventDefault();
+        var value = domBranches.val();
+        if (value) {
+            start(value);
+        }
+    });
 };
 
 /**
  * Start loadin PIXI
  * @method start
  */
-VersionChooser.prototype.start = function(event)
+VersionChooser.prototype.start = function(tag)
 {
-    event.preventDefault();
-
-    var tag = event.target.innerHTML;
-    this.domElement.find('button')
-        .prop('disabled', true)
-        .addClass('hidden');
-
     var script = $('<script></script>');
     var src = this.cdnTemplate.replace('${tag}', tag);
     script.prop('src', src);
