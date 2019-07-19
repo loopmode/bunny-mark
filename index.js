@@ -213,32 +213,30 @@ BunnyMark.prototype.ready = function(startBunnyCount)
     $('input[type=checkbox]').each(function() {
         options[this.value] = this.checked;
     });
-    $('select').each(function() {
+    $('select[name=powerPreference]').each(function() {
         options.powerPreference = this.value;
     });
 
-    if (PIXI.autoDetectRenderer) {
-        this.renderer = PIXI.autoDetectRenderer(
-            this.bounds.right,
-            this.bounds.bottom,
-            options
-        );
+    Object.assign(options, {
+        width: this.bounds.right,
+        height: this.bounds.bottom,
+    });
 
-        // Add fewer bunnies for the canvas renderer
-        if (this.renderer instanceof PIXI.CanvasRenderer)
-        {
-            this.amount = 5;
-            this.renderer.context.mozImageSmoothingEnabled = false;
-            this.renderer.context.webkitImageSmoothingEnabled = false;
-        }
+    try {
+        this.renderer = PIXI.autoDetectRenderer(options);
     }
-    // Support for v5
-    else if (PIXI.Renderer) {
-        this.renderer = new PIXI.Renderer(
-            this.bounds.right,
-            this.bounds.bottom,
-            options
-        );
+    catch(err)
+    {
+        alert(err.message);
+        return;
+    }
+
+    // Add fewer bunnies for the canvas renderer
+    if (PIXI.CanvasRenderer && this.renderer instanceof PIXI.CanvasRenderer)
+    {
+        this.amount = 5;
+        this.renderer.context.mozImageSmoothingEnabled = false;
+        this.renderer.context.webkitImageSmoothingEnabled = false;
     }
 
     // The current stage
@@ -251,14 +249,17 @@ BunnyMark.prototype.ready = function(startBunnyCount)
 
     // Get bunny textures
     this.textures = Resources.map(function(a){
-        return PIXI.Texture.fromImage(a, null, 1);
+        return PIXI.Texture.from(a);
     });
 
-    var gl = this.renderer.gl;
-    this.textures.length = Math.min(
-        gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS), 
-        this.textures.length
-    );
+    if (this.renderer.gl)
+    {
+        var gl = this.renderer.gl;
+        this.textures.length = Math.min(
+            gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS),
+            this.textures.length
+        );
+    }
 
     // Create the sounder
     this.counter = $("#counter");
@@ -281,7 +282,7 @@ BunnyMark.prototype.ready = function(startBunnyCount)
 
     // Handle window resizes
     $(window).on(
-        'resize orientationchange', 
+        'resize orientationchange',
         this.resize.bind(this)
     );
 
@@ -463,10 +464,16 @@ var VersionChooser = function(domElementSelector)
     this.timeout = null;
 
     /**
-     * Path for loading PIXI from the CDN
+     * Path for loading PIXI from the CDN, v5+
      * @type {String}
      */
-    this.cdnTemplate = '//d157l7jdn8e5sf.cloudfront.net/${tag}/pixi.js';
+    this.cdnTemplate = '//pixijs.download/${tag}/pixi-legacy.min.js';
+
+    /**
+     * Path for loading PIXI from the CDN, v4 and below
+     * @type {String}
+     */
+    this.cdnTemplate4 = '//pixijs.download/${tag}/pixi.min.js';
 
     /**
      * The input for bunny count
@@ -617,7 +624,8 @@ VersionChooser.prototype.displayTags = function()
 VersionChooser.prototype.start = function(tag)
 {
     var script = $('<script></script>');
-    var src = this.cdnTemplate.replace('${tag}', tag);
+    var template = tag.indexOf('v4') === 0 ? this.cdnTemplate4 : this.cdnTemplate;
+    var src = template.replace('${tag}', tag);
     script.prop('src', src);
 
     this.addScript(script);
