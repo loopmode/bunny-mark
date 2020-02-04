@@ -1,4 +1,4 @@
-(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
 /**
  * Bunny
@@ -418,8 +418,6 @@ module.exports = [
     'images/rabbitv3_frankenstein.png'
 ];
 },{}],4:[function(require,module,exports){
-var GITHUB_TOKEN = 'a3cd5bd2660280b5e8bac7606a0f11764428da1d';
-
 /**
  * Select the version of pixi.js to test
  * @class VersionChooser
@@ -432,18 +430,6 @@ var VersionChooser = function(domElementSelector)
      * @type {JQuery}
      */
     this.domElement = $(domElementSelector);
-
-    /**
-     * Collection of tag options
-     * @type {Array<String>}
-     */
-    this.tags = [];
-
-    /**
-     * Collection of branch options
-     * @type {Array<String>}
-     */
-    this.branches = [];
 
     /**
      * Callback funtion when complete
@@ -483,51 +469,11 @@ var VersionChooser = function(domElementSelector)
 };
 
 /**
- * Get the list of releases (versions) from the Github API
- * @method getReleases
- * @param {Function} callback when completed
- */
-VersionChooser.prototype.getReleases = function(callback)
-{
-    var _this = this;
-    var api = 'https://api.github.com/repos/pixijs/pixi.js/releases';
-    $.getJSON(api, { access_token: GITHUB_TOKEN }, function(releases)
-    {
-        for (var i = 0; i < releases.length; i++)
-        {
-            _this.tags.push(releases[i].tag_name);
-        }
-        _this.tags.sort();
-        callback();
-    });
-};
-
-/**
- * Get the list of branches of pixijs/pixi.js from the Github API
- * @method getBranches
- * @param {Function} callback when completed
- */
-VersionChooser.prototype.getBranches = function(callback)
-{
-    var _this = this;
-    var api = 'https://api.github.com/repos/pixijs/pixi.js/branches';
-    $.getJSON(api, { access_token: GITHUB_TOKEN }, function(branches)
-    {
-        for (var i = 0; i < branches.length; i++)
-        {
-            _this.branches.push(branches[i].name);
-        }
-        _this.branches.sort();
-        callback();
-    });
-};
-
-/**
  * Start setup
  * @method init
  */
 VersionChooser.prototype.init = function()
-{
+{    
     this.domElement.removeClass('hidden');
 
     var _this = this;
@@ -563,54 +509,13 @@ VersionChooser.prototype.init = function()
         }        
     });
 
-    _this.getReleases(function()
-    {
-        _this.getBranches(function()
-        {
-            _this.displayTags();
-        })
-    });
-};
-
-/**
- * Display the tag options
- * @method displayTags
- */
-VersionChooser.prototype.displayTags = function()
-{
-    var domTags = this.domElement.find('#tags');
-    var domBranches = this.domElement.find('#branches');
-    var i, option;
-
-    for (i = this.tags.length - 1; i >= 0; i--)
-    {
-        option = $(document.createElement('option'));
-        option.html(this.tags[i]);
-        domTags.append(option);
-    }
-
-    for (i = this.branches.length - 1; i >= 0; i--)
-    {
-        option = $(document.createElement('option'));
-        option.html(this.branches[i]);
-        domBranches.append(option);
-    }
-
-    var tagsButton = this.domElement.find('#tagsButton');
-    var branchesButton = this.domElement.find('#branchesButton');
+    var goButton = this.domElement.find('#goButton');
+    var branch = this.domElement.find('#branch');
     var start = this.start.bind(this);
 
-    tagsButton.on('click', function(event) {
+    goButton.on('click', function(event) {
         event.preventDefault();
-        var value = domTags.val();
-        if (value) {
-            start(value);
-        }
-    });
-
-    branchesButton.on('click', function(event) {
-        event.preventDefault();
-        var value = domBranches.val();
+        var value = branch.val();
         if (value) {
             start(value);
         }
